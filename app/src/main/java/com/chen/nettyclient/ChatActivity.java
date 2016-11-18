@@ -8,6 +8,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import com.chen.nettyclient.adapter.MessageAdapter;
+import com.chen.nettyclient.chat.ConnectManager;
 import com.chen.nettyclient.entity.BaseMessage;
 import com.chen.nettyclient.type.MsgDirect;
 import java.util.ArrayList;
@@ -77,5 +78,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         
         mMsgListData.add(msg);
         mAdapter.notifyDataSetChanged();
+
+        ConnectManager.getInstance().sendMessage(msg);
     }
 }
