@@ -8,6 +8,9 @@ import android.widget.Button;
 import android.widget.Toast;
 import com.chen.nettyclient.chat.ConnectManager;
 
+/**
+ * 主界面
+ */
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private static final String TAG = "MainActivity";
 

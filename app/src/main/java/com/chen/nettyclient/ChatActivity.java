@@ -13,6 +13,8 @@ import com.chen.nettyclient.entity.BaseMessage;
 import com.chen.nettyclient.type.MsgDirect;
 import java.util.ArrayList;
 import java.util.List;
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
 
 public class ChatActivity extends AppCompatActivity implements View.OnClickListener {
     private static final String TAG = "ChatActivity";
@@ -46,6 +48,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         mMsgListData = new ArrayList<BaseMessage>();
         mAdapter = new MessageAdapter(this,mMsgListData);
         mListView.setAdapter(mAdapter);
+        EventBus.getDefault().register(this);
     }
 
     @Override
@@ -61,24 +64,33 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
     
-    private boolean isSend = false;
-    
     private void sendTextMsg(String content){
         Log.i(TAG,"将要发送的信息为："+content);
-        BaseMessage msg = new BaseMessage();
-        msg.setContent(content);
-        
-        if(!isSend){
-            msg.setMsg_direct(MsgDirect.RECEIVE.getIndex());
-            isSend = true;
-        }else {
-            msg.setMsg_direct(MsgDirect.SEND.getIndex());
-            isSend = false;
-        }
-        
-        mMsgListData.add(msg);
-        mAdapter.notifyDataSetChanged();
+        BaseMessage message = new BaseMessage();
+        message.setMsg_direct(MsgDirect.SEND.getIndex());
+        message.setContent(content);
+        addMsg(message);
+        ConnectManager.getInstance().sendMessage(message);
+    }
 
-        ConnectManager.getInstance().sendMessage(msg);
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        EventBus.getDefault().unregister(this);
+    }
+    
+    
+    @Subscribe
+    public void onEventMainThread(String rev){
+        BaseMessage message = new BaseMessage();
+        message.setMsg_direct(MsgDirect.RECEIVE.getIndex());
+        message.setContent(rev);
+        addMsg(message);
+    }
+    
+    private void addMsg(BaseMessage message){
+        mMsgListData.add(message);
+        mAdapter.notifyDataSetChanged();
+        mListView.setSelection(mMsgListData.size()-1);
     }
 }

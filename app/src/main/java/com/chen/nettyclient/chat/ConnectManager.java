@@ -1,6 +1,7 @@
 package com.chen.nettyclient.chat;
 
 import android.util.Log;
+import com.chen.nettyclient.ClientConfig;
 import com.chen.nettyclient.entity.BaseMessage;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
@@ -15,25 +16,29 @@ import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.SimpleChannelHandler;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
-import org.jboss.netty.handler.codec.frame.LengthFieldBasedFrameDecoder;
 
 /**
  * Author： Jackchen
  * Time： 2016/11/18
- * Description:
+ * Description:连接服务器并进行交互的管理类
  */
 public class ConnectManager extends Thread {
     private static final String TAG = "ConnectManager";
     private static ConnectManager instance;
 
+    //Netty变量
     private ClientBootstrap clientBootstrap;
     private ChannelFactory channelFactory;
     private ChannelFuture channelFuture = null;
     private Channel channel = null;
 
+    //服务参数
     private String strHost = null;
     private int nPort = 0;
 
+    /**
+     * @return
+     */
     public static ConnectManager getInstance() {
         if (instance == null) {
             synchronized (ConnectManager.class) {
@@ -43,30 +48,25 @@ public class ConnectManager extends Thread {
         return instance;
     }
 
+    //构造函数
     private ConnectManager() {
-        this.strHost = "192.168.1.197";
-        this.nPort = 5001;
+        this.strHost = ClientConfig.IP;
+        this.nPort = ClientConfig.PORT;
         init(new MsgHandler());
     }
 
+    /**
+     * 初始化变量
+     *
+     * @param handler
+     */
     private void init(final SimpleChannelHandler handler) {
         channelFactory = new NioClientSocketChannelFactory(Executors.newSingleThreadExecutor(),
             Executors.newSingleThreadExecutor());
-
         clientBootstrap = new ClientBootstrap(channelFactory);
         clientBootstrap.setPipelineFactory(new ChannelPipelineFactory() {
-
             public ChannelPipeline getPipeline() throws Exception {
-                ChannelPipeline pipeline = Channels.pipeline();
-                // 接收的数据包解码
-
-                pipeline.addLast("decoder",
-                    new LengthFieldBasedFrameDecoder(400 * 1024, 0, 2, -2, 0));
-                // 发送的数据包编码
-                //pipeline.addLast("encoder", new PacketEncoder());
-                // 具体的业务处理，这个handler只负责接收数据，并传递给dispatcher
-                pipeline.addLast("handler", handler);
-                return pipeline;
+                return Channels.pipeline(new MsgHandler());
             }
         });
 
@@ -86,7 +86,7 @@ public class ConnectManager extends Thread {
 
     private boolean doConnect() {
         try {
-            if ((null == channel || (null != channel && !channel.isConnected()))
+            if ((channel == null || (channel != null && !channel.isConnected()))
                 && null != this.strHost
                 && this.nPort > 0) {
                 // Start the connection attempt.
@@ -96,7 +96,7 @@ public class ConnectManager extends Thread {
                 if (!channelFuture.isSuccess()) {
                     channelFuture.getCause().printStackTrace();
                     clientBootstrap.releaseExternalResources();
-
+                    //TODO  连接失败
                     //IMReconnectManager.instance().setOnRecconnecting(false);
                     return false;
                 }
@@ -115,29 +115,28 @@ public class ConnectManager extends Thread {
         }
     }
 
-    /////////////////////////
+    /**
+     * 发送消息
+     * @param msg 要发送的消息
+     * @return
+     */
     public boolean sendMessage(BaseMessage msg) {
         ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
         buffer.writeBytes(msg.getContent().getBytes());
-        Log.i(TAG,"sendMessage 1");
-
         if (null != buffer && null != channelFuture.getChannel()) {
-            Log.i(TAG,"sendMessage 2");
             /**底层的状态要提前判断，netty抛出的异常上层catch不到*/
             Channel currentChannel = channelFuture.getChannel();
             boolean isW = currentChannel.isWritable();
             boolean isC = currentChannel.isConnected();
             if (!(isW && isC)) {
-                Log.i(TAG,"sendMessage 4");
+                Log.i(TAG, "sendMessage 4");
                 throw new RuntimeException("#sendRequest#channel is close!");
             }
-            Log.i(TAG,"sendMessage 5");
             channelFuture.getChannel().write(buffer);
-            Log.i(TAG, "packet#send ok");
+            Log.i(TAG, "sendMessage ok");
             return true;
         } else {
-            Log.i(TAG, "packet#send failed");
-            Log.i(TAG,"sendMessage 2");
+            Log.i(TAG, "sendMessage failed");
             return false;
         }
     }
